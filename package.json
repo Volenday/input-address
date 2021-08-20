@@ -14,7 +14,7 @@
 		"@react-google-maps/api": "^2.2.0",
 		"antd": "^3.26.16",
 		"react": "^16.13.1",
-		"react-dom": "^16.13.1",
+		"react-dom": "^16.13.1"
 	},
 	"devDependencies": {
 		"@babel/core": "^7.12.7",
