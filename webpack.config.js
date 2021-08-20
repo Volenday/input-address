@@ -54,13 +54,10 @@ module.exports = {
 		libraryTarget: 'commonjs2'
 	},
 	externals: {
+		'@react-google-maps/api': '@react-google-maps/api',
 		antd: 'antd',
 		react: 'react',
 		'react-dom': 'react-dom',
-		'react-google-maps': 'react-google-maps',
-		'react-google-maps/lib/components/places/SearchBox': 'react-google-maps/lib/components/places/SearchBox',
-		'react-google-maps/lib/components/places/StandaloneSearchBox':
-			'react-google-maps/lib/components/places/StandaloneSearchBox'
 	},
 	plugins: [
 		new webpack.optimize.AggressiveMergingPlugin(),

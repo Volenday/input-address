@@ -1,90 +1,62 @@
-import React, { Component } from 'react';
-import { GoogleMap, Marker, withGoogleMap } from 'react-google-maps';
-import SearchBox from 'react-google-maps/lib/components/places/SearchBox';
-import { StandaloneSearchBox } from 'react-google-maps/lib/components/places/StandaloneSearchBox';
-import { Form, Checkbox, message, Skeleton } from 'antd';
+import React, { useCallback, useEffect, useState } from 'react';
+import { Form, Checkbox, notification, Skeleton } from 'antd';
+import { GoogleMap, Marker, StandaloneSearchBox, useJsApiLoader } from '@react-google-maps/api';
 
 const browser = typeof window !== 'undefined' ? true : false;
+const libraries = ['places'];
 
 if (browser) require('./styles.css');
 
-const MapComponent = withGoogleMap(props => {
-	const { Input } = require('antd');
+const InputAddress = props => {
+	const {
+		disabled = false,
+		extra = null,
+		id,
+		inlineError = true,
+		label = '',
+		onBlur,
+		onChange,
+		placeholder = '',
+		required = false,
+		value = '',
+		withLabel = false,
+		withMap = true
+	} = props;
 
-	return (
-		<GoogleMap
-			ref={props.onMapMounted}
-			options={{ gestureHandling: 'cooperative', maxZoom: 18 }}
-			defaultZoom={17}
-			center={props.center}
-			onBoundsChanged={props.onBoundsChanged}>
-			<SearchBox
-				ref={props.onSearchBoxMounted}
-				bounds={props.bounds}
-				controlPosition={window.google.maps.ControlPosition.TOP_LEFT}
-				onPlacesChanged={props.onPlacesChanged}>
-				<Input
-					type="text"
-					value={props.value}
-					onBlur={props.onBlur}
-					onChange={e => props.onChange(e.target.value)}
-					onKeyDown={e => {
-						if (e.key === 'Enter') {
-							e.preventDefault();
-						}
-					}}
-					id={props.id}
-					placeholder={props.placeholder || props.label || props.id}
-					required={props.required}
-					style={{
-						width: 'calc(100% - 169px - 20px - 40px - 20px)',
-						border: 'none',
-						height: '40px',
-						marginTop: '10px',
-						padding: '0 12px',
-						borderRadius: '3px',
-						fontSize: '14px',
-						outline: 'none',
-						textOverflow: 'ellipses'
-					}}
-					size="large"
-					name={props.id}
-				/>
-			</SearchBox>
-			{props.markers.map((marker, index) => (
-				<Marker key={index} position={marker.position} />
-			))}
-		</GoogleMap>
-	);
-});
-
-export default class InputAddress extends Component {
-	state = {
-		errors: [],
-		bounds: null,
-		center: { lat: 14.5613, lng: 121.0273 },
-		custom: false,
-		markers: [
-			{
-				position: {
-					lat: 14.5613,
-					lng: 14.5613
-				}
+	const [address, setAddress] = useState('');
+	const [center, setCenter] = useState({ lat: 14.5626901, lng: 121.0084815 });
+	const [custom, setCustom] = useState(false);
+	const [errors, setErrors] = useState([]);
+	const [map, setMap] = useState(null);
+	const [markers, setMarkers] = useState([
+		{
+			position: {
+				lat: 14.5626901,
+				lng: 121.0084815
 			}
-		],
-		showMap: true
-	};
+		}
+	]);
+	const [showMap, setShowMap] = useState(true);
+	const [searchTextBox, setSearchTextBox] = useState(null);
 
-	map = React.createRef();
-	searchTextBox = React.createRef();
-	standAloneTextBox = React.createRef();
+	const { isLoaded } = useJsApiLoader({
+		id: 'google-map-script',
+		googleMapsApiKey: 'AIzaSyBUTqogIcZvX0frMiWfLfm8UqbfSPsoTpc',
+		libraries
+	});
 
-	setAddressObject = value => JSON.stringify({ lat: null, lng: null, address: value, url: '' });
+	const onLoad = useCallback(map => {
+		const bounds = new window.google.maps.LatLngBounds();
+		map.fitBounds(bounds);
+		setMap(map);
+	}, []);
 
-	renderInput() {
+	const onUnmount = useCallback(map => setMap(null), []);
+
+	const setAddressObject = value => JSON.stringify({ lat: null, lng: null, address: value, url: '' });
+
+	const renderInput = () => {
 		const { Input } = require('antd');
-
-		const { disabled = false, id, label = '', onChange, placeholder = '', value = '' } = this.props;
 
 		const address = value !== '' ? JSON.parse(value).address : '';
 
@@ -93,11 +65,12 @@ export default class InputAddress extends Component {
 				autoComplete="off"
 				disabled={disabled}
 				name={id}
+				onBlur={onBlur ? onBlur : null}
 				onChange={e =>
 					onChange(
-						{ target: { name: id, value: this.setAddressObject(e.target.value) } },
+						{ target: { name: id, value: setAddressObject(e.target.value) } },
 						id,
-						this.setAddressObject(e.target.value)
+						setAddressObject(e.target.value)
 					)
 				}
 				placeholder={placeholder || label || id}
@@ -105,93 +78,15 @@ export default class InputAddress extends Component {
 				value={address}
 			/>
 		);
-	}
+	};
 
-	renderInputStandalone() {
-		const { Input } = require('antd');
-
-		const {
-			disabled = false,
-			id,
-			label = '',
-			onChange,
-			placeholder = '',
-			required = false,
-			value = ''
-		} = this.props;
-
-		const address = value !== '' ? JSON.parse(value).address : '';
-
+	const renderInputStandalone = () => {
 		return (
-			<div data-standalone-searchbox="">
-				<StandaloneSearchBox
-					ref={this.standAloneTextBox}
-					onPlacesChanged={async e => {
-						const places = this.standAloneTextBox.current.getPlaces();
-
-						const value = JSON.stringify({
-							lat: places[0].geometry.location.lat(),
-							lng: places[0].geometry.location.lng(),
-							address: places[0].formatted_address,
-							url: places[0].url
-						});
-						onChange({ target: { name: id, value } }, id, value);
-					}}>
-					<Input
-						type="text"
-						name={id}
-						autoComplete="off"
-						placeholder={placeholder || label || id}
-						onChange={e =>
-							onChange(
-								{ target: { name: id, value: this.setAddressObject(e.target.value) } },
-								id,
-								this.setAddressObject(e.target.value)
-							)
-						}
-						value={address}
-						required={required}
-						disabled={disabled}
-					/>
-				</StandaloneSearchBox>
-			</div>
-		);
-	}
-
-	renderInputMap() {
-		const { bounds, center = { lat: 14.5613, lng: 121.0273 }, markers } = this.state;
-		const { id, label = '', onChange, placeholder = '', required = false, value = '' } = this.props;
-
-		const address = value !== '' ? JSON.parse(value).address : '';
-
-		return (
-			<MapComponent
-				isMarkerShown
-				label={label}
-				placeholder={placeholder}
-				loadingElement={<div style={{ height: `100%` }} />}
-				containerElement={<div style={{ height: `400px`, clear: 'both' }} />}
-				mapElement={<div style={{ height: `100%` }} />}
-				onMapMounted={this.map}
-				onSearchBoxMounted={this.searchTextBox}
-				bounds={bounds}
-				center={center}
-				required={required}
-				onBlur={() => {
-					setTimeout(() => {
-						const places = this.searchTextBox.current.getPlaces();
-						if (!places) message.error('Address not found. Try to press enter in the address bar.');
-					}, 1000);
-				}}
-				onChange={e =>
-					onChange({ target: { name: id, value: this.setAddressObject(e) } }, id, this.setAddressObject(e))
-				}
-				onBoundsChanged={() =>
-					this.setState({ bounds: this.map.current.getBounds(), center: this.map.current.getCenter() })
-				}
-				value={address}
-				onPlacesChanged={async e => {
-					const places = this.searchTextBox.current.getPlaces();
+			<StandaloneSearchBox
+				controlPosition={window.google.maps.ControlPosition.TOP_LEFT}
+				onLoad={setSearchTextBox}
+				onPlacesChanged={() => {
+					const places = searchTextBox.getPlaces();
 					const bounds = new window.google.maps.LatLngBounds();
 
 					places.forEach(place => {
@@ -201,12 +96,6 @@ export default class InputAddress extends Component {
 							bounds.extend(place.geometry.location);
 						}
 					});
-					const nextMarkers = places.map(place => ({ position: place.geometry.location }));
-					const nextCenter = _.get(nextMarkers, '0.position', center);
-					await this.setState({
-						center: nextCenter,
-						markers: nextMarkers
-					});
 
 					const value = JSON.stringify({
 						lat: places[0].geometry.location.lat(),
@@ -215,75 +104,159 @@ export default class InputAddress extends Component {
 						url: places[0].url
 					});
 					onChange({ target: { name: id, value } }, id, value);
-				}}
-				markers={markers}
-				id={id}
-			/>
+				}}>
+				<input
+					className="ant-input"
+					id={id}
+					name={id}
+					onBlur={() => {
+						setTimeout(() => {
+							const places = searchTextBox.getPlaces();
+							if (!places)
+								notification.error('Address not found. Try to press enter in the address bar.');
+						}, 1000);
+
+						if (onBlur) onBlur();
+					}}
+					onChange={e => setAddress(e.target.value)}
+					placeholder={placeholder || label || id}
+					required={required}
+					type="text"
+					value={address}
+				/>
+			</StandaloneSearchBox>
 		);
-	}
+	};
 
-	render() {
-		const { errors, custom, showMap } = this.state;
-		const {
-			disabled = false,
-			extra = null,
-			id,
-			inlineError = true,
-			label = '',
-			required = false,
-			withLabel = false,
-			withMap = true
-		} = this.props;
-
-		let formItemCommonProps = {
-			colon: false,
-			label: withLabel ? (
-				<>
-					<div style={{ float: 'right' }}>{extra}</div> <span class="label">{label}</span>
-				</>
-			) : (
-				false
-			),
-			required,
-			validateStatus: errors.length != 0 ? 'error' : 'success'
-		};
-		if (inlineError) formItemCommonProps = { ...formItemCommonProps, help: errors.length != 0 ? errors[0] : '' };
+	const renderInputMap = () => {
+		const containerStyle = { width: '100%', height: '400px' },
+			inputStyle = {
+				width: 250,
+				height: 40,
+				padding: '0 12px',
+				position: 'absolute',
+				top: 10,
+				right: 60
+			};
 
 		return (
-			<Form.Item {...formItemCommonProps}>
-				<Checkbox
-					checked={custom}
-					name={id}
-					onChange={e => this.setState({ custom: e.target.checked })}
-					disabled={disabled}
-				/>
-				<span>&nbsp;Custom Address</span>
-				{!custom && (
-					<>
-						<span>&nbsp;&nbsp;</span>
-						<label>
-							<Checkbox
-								checked={showMap && withMap}
-								name={id}
-								onChange={e => this.setState({ showMap: e.target.checked })}
-								disabled={disabled}
-							/>
-							<span>&nbsp;Map</span>
-						</label>
-					</>
-				)}
-				{browser ? (
-					custom ? (
-						this.renderInput()
-					) : showMap && withMap ? (
-						this.renderInputMap()
-					) : (
-						this.renderInputStandalone()
-					)
-				) : (
-					<Skeleton active paragraph={{ rows: 1, width: '100%' }} title={false} />
-				)}
-			</Form.Item>
+			<GoogleMap
+				mapContainerStyle={containerStyle}
+				center={center}
+				zoom={20}
+				onLoad={onLoad}
+				onUnmount={onUnmount}>
+				<StandaloneSearchBox
+					controlPosition={window.google.maps.ControlPosition.TOP_LEFT}
+					onLoad={setSearchTextBox}
+					onPlacesChanged={() => {
+						const places = searchTextBox.getPlaces();
+						const bounds = new window.google.maps.LatLngBounds();
+
+						places.forEach(place => {
+							if (place.geometry.viewport) {
+								bounds.union(place.geometry.viewport);
+							} else {
+								bounds.extend(place.geometry.location);
+							}
+						});
+
+						const nextMarkers = places.map(place => ({ position: place.geometry.location }));
+						const nextCenter = _.get(nextMarkers, '0.position', center);
+
+						setCenter(nextCenter);
+						setMarkers(nextMarkers);
+
+						const value = JSON.stringify({
+							lat: places[0].geometry.location.lat(),
+							lng: places[0].geometry.location.lng(),
+							address: places[0].formatted_address,
+							url: places[0].url
+						});
+						onChange({ target: { name: id, value } }, id, value);
+					}}>
+					<input
+						className="ant-input"
+						id={id}
+						name={id}
+						onBlur={() => {
+							setTimeout(() => {
+								const places = searchTextBox.getPlaces();
+								if (!places)
+									notification.error({
+										title: 'ERROR',
+										description: 'Address not found. Try to press enter in the address bar.'
+									});
+							}, 1000);
+
+							if (onBlur) onBlur();
+						}}
+						onChange={e => setAddress(e.target.value)}
+						placeholder={placeholder || label || id}
+						required={required}
+						style={inputStyle}
+						type="text"
+						value={address}
+					/>
+				</StandaloneSearchBox>
+				{markers.map((d, index) => (
+					<Marker key={index} position={d.position} />
+				))}
+			</GoogleMap>
 		);
-	}
-}
+	};
+
+	useEffect(() => {
+		const address = value !== '' ? JSON.parse(value) : '';
+		if (address) {
+			setAddress(address.address);
+			setCenter(address);
+		}
+	}, [value]);
+
+	let formItemCommonProps = {
+		colon: false,
+		label: withLabel ? (
+			<>
+				<div style={{ float: 'right' }}>{extra}</div> <span className="label">{label}</span>
+			</>
+		) : (
+			false
+		),
+		required,
+		validateStatus: errors.length != 0 ? 'error' : 'success'
+	};
+	if (inlineError) formItemCommonProps = { ...formItemCommonProps, help: errors.length != 0 ? errors[0] : '' };
+
+	return (
+		<Form.Item {...formItemCommonProps}>
+			<Checkbox checked={custom} name={id} onChange={e => setCustom(e.target.checked)} disabled={disabled}>
+				Custom Address
+			</Checkbox>
+
+			{!custom && (
+				<Checkbox
+					checked={showMap && withMap}
+					name={id}
+					onChange={e => setShowMap(e.target.checked)}
+					disabled={disabled}>
+					Map
+				</Checkbox>
+			)}
+
+			{browser && isLoaded ? (
+				custom ? (
+					renderInput()
+				) : showMap && withMap ? (
+					renderInputMap()
+				) : (
+					renderInputStandalone()
+				)
+			) : (
+				<Skeleton active paragraph={{ rows: 1, width: '100%' }} title={false} />
+			)}
+		</Form.Item>
+	);
+};
+
+export default InputAddress;
