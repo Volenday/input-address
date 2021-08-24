@@ -11,6 +11,7 @@ const InputAddress = props => {
 	const {
 		disabled = false,
 		extra = null,
+		googleMapsApiKey = '',
 		id,
 		inlineError = true,
 		label = '',
@@ -39,9 +40,11 @@ const InputAddress = props => {
 	const [showMap, setShowMap] = useState(true);
 	const [searchTextBox, setSearchTextBox] = useState(null);
 
+	if (!googleMapsApiKey) return <p>Missing Google Maps API Key</p>;
+
 	const { isLoaded } = useJsApiLoader({
 		id: 'google-map-script',
-		googleMapsApiKey: 'AIzaSyBUTqogIcZvX0frMiWfLfm8UqbfSPsoTpc',
+		googleMapsApiKey: googleMapsApiKey,
 		libraries
 	});
 
